@@ -105,7 +105,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
 
         final Path link = tempDir.resolve("cantaloupe-" +
                 OpenJpegProcessor.class.getSimpleName() + "-" +
-                UUID.randomUUID() + ".bmp");
+                UUID.randomUUID() + ".png");
         final Path devStdout = Paths.get("/dev/stdout");
 
         stdoutSymlink = Files.createSymbolicLink(link, devStdout);
@@ -379,7 +379,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
 
                 final ImageReader reader = new ImageReader(
                         new InputStreamStreamSource(processInputStream),
-                        Format.BMP);
+                        Format.PNG);
                 final BufferedImage image = reader.read();
                 try {
                     Set<ImageReader.Hint> hints = new HashSet<>();
