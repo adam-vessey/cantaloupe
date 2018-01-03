@@ -37,8 +37,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.UUID;
@@ -91,7 +93,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
     /** Lazy-set by {@link #isQuietModeSupported()} */
     private static boolean isQuietModeSupported = true;
 
-    private static Path stdoutSymlink;
+    private static Map<String, Path> stdoutSymlinks = new HashMap<String, Path>(2);
 
     // will cache opj_dump output
     private String imageInfo;
@@ -100,16 +102,17 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
      * Creates a unique symlink to /dev/stdout in a temporary directory, and
      * sets it to delete on exit.
      */
-    private static void createStdoutSymlink() throws IOException {
+    private static void createStdoutSymlink(String extension) throws IOException {
         Path tempDir = Application.getTempPath();
 
         final Path link = tempDir.resolve("cantaloupe-" +
                 OpenJpegProcessor.class.getSimpleName() + "-" +
-                UUID.randomUUID() + ".bmp");
+                UUID.randomUUID() + "." + extension);
         final Path devStdout = Paths.get("/dev/stdout");
 
-        stdoutSymlink = Files.createSymbolicLink(link, devStdout);
-        stdoutSymlink.toFile().deleteOnExit();
+        final Path symlink = Files.createSymbolicLink(link, devStdout);
+        stdoutSymlinks.put(extension, symlink);
+        symlink.toFile().deleteOnExit();
     }
 
     /**
@@ -137,7 +140,8 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
                 // Due to another quirk of opj_decompress, we need to create a
                 // symlink from {temp path}/stdout.bmp to /dev/stdout, to tell
                 // opj_decompress what format to write.
-                createStdoutSymlink();
+                createStdoutSymlink(Format.BMP.getPreferredExtension());
+                createStdoutSymlink(Format.PNG.getPreferredExtension());
             } else {
                 LOGGER.error("Sorry, but " + OpenJpegProcessor.class.getSimpleName() +
                         " won't work on this platform as it requires access to " +
@@ -298,8 +302,10 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
                             image.tileWidth = tileWidth;
                             image.tileHeight = tileHeight;
                         }
+                    } else if (line.startsWith("prec=")) {
+                        image.updateDepth(Integer.parseInt(line.substring(5)));
                     }
-                }
+                } 
             }
             final Info info = new Info();
             info.setSourceFormat(getSourceFormat());
@@ -366,8 +372,13 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
             // If we are normalizing, we need to read the entire image region.
             final boolean normalize = (opList.getFirst(Normalize.class) != null);
 
+            // BMP supports only 8 or more bits... PNG is can go lower but
+            // incurs additional cycles (de)compressing.
+            final Format intermediateFormat = imageInfo.getMinDepth() < 8 ?
+                    Format.PNG :
+                    Format.BMP;
             final ProcessBuilder pb = getProcessBuilder(
-                    opList, imageInfo.getSize(), reductionFactor, normalize);
+                    opList, imageInfo.getSize(), reductionFactor, normalize, intermediateFormat);
             LOGGER.info("Invoking {}", String.join(" ", pb.command()));
             final Process process = pb.start();
 
@@ -379,7 +390,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
 
                 final ImageReader reader = new ImageReader(
                         new InputStreamStreamSource(processInputStream),
-                        Format.BMP);
+                        intermediateFormat);
                 final BufferedImage image = reader.read();
                 try {
                     Set<ImageReader.Hint> hints = new HashSet<>();
@@ -440,7 +451,8 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
     private ProcessBuilder getProcessBuilder(final OperationList opList,
                                              final Dimension imageSize,
                                              final ReductionFactor reduction,
-                                             final boolean ignoreCrop) {
+                                             final boolean ignoreCrop,
+                                             final Format intermediateFormat) {
         final List<String> command = new ArrayList<>();
         command.add(getPath("opj_decompress"));
 
@@ -482,7 +494,9 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
         }
 
         command.add("-o");
-        command.add(stdoutSymlink.toString());
+        
+        final Path symlink = stdoutSymlinks.get(intermediateFormat.getPreferredExtension());
+        command.add(symlink.toString());
 
         return new ProcessBuilder(command);
     }

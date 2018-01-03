@@ -41,6 +41,7 @@ public final class Info {
         public String orientation;
         public Integer tileWidth;
         public Integer tileHeight;
+        public Integer minDepth = null;
 
         /**
          * No-op constructor.
@@ -163,6 +164,18 @@ public final class Info {
         public void setTileSize(Dimension tileSize) {
             tileWidth = tileSize.width;
             tileHeight = tileSize.height;
+        }
+        
+        @JsonIgnore
+        public void updateDepth(int depth) {
+            if (minDepth == null) {
+                minDepth = depth;
+            }
+            else {
+                if (depth < minDepth) {
+                    minDepth = depth;
+                }
+            }
         }
 
     }
@@ -392,6 +405,14 @@ public final class Info {
     @JsonIgnore
     public void writeAsJSON(OutputStream os) throws IOException {
         new ObjectMapper().writer().writeValue(os, this);
+    }
+    
+    public Integer getMinDepth() {
+        return getMinDepth(0);
+    }
+    
+    public Integer getMinDepth(int imageIndex) {
+        return images.get(imageIndex).minDepth;
     }
 
 }
