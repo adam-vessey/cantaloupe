@@ -446,6 +446,8 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
      *                   modified.
      * @param ignoreCrop Ignore any cropping directives provided in
      *                   <code>opList</code>.
+     * @param intermediateFormat    The format being built to pass off to
+     *                              ImageIO. 
      * @return opj_decompress command invocation string
      */
     private ProcessBuilder getProcessBuilder(final OperationList opList,
