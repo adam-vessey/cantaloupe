@@ -50,19 +50,17 @@ import java.util.regex.Pattern;
  *
  * <p>{@literal opj_decompress} is used for cropping and an initial scale
  * reduction factor, and Java 2D is used for all remaining processing steps.
- * It produces BMP output which is streamed to an ImageIO reader. (BMP does not
+ * It produces TIFF output which is streamed to an ImageIO reader. (TIFF does not
  * copy embedded ICC profiles into output images, but {@literal opj_decompress}
- * converts the RGB source data itself. BMP also doesn't support more than 8
- * bits per sample, which means that this processor can't respect {@link
- * Encode#getMaxSampleSize()}, and all output is &le; 8 bits.)</p>
+ * converts the RGB source data itself.</p>
  *
  * <p>{@literal opj_decompress} reads and writes the files named in the
  * {@literal -i} and {@literal -o} arguments passed to it, respectively. The
- * file in the {@literal -o} argument must have a {@literal .bmp} extension.
+ * file in the {@literal -o} argument must have a {@literal .tif} extension.
  * This means that it's not possible to natively write to a {@link
  * Process#getInputStream() process input stream}. Instead, we have to resort
  * to a special trick whereby we create a symlink from
- * {@literal /tmp/whatever.bmp} to {@literal /dev/stdout}, which will enable us
+ * {@literal /tmp/whatever.tif} to {@literal /dev/stdout}, which will enable us
  * to accomplish this. The temporary symlink is created in the static
  * initializer and deleted on exit.</p>
  *
@@ -108,7 +106,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
 
         final Path link = tempDir.resolve(Application.NAME + "-" +
                 OpenJpegProcessor.class.getSimpleName() + "-" +
-                UUID.randomUUID() + ".bmp");
+                UUID.randomUUID() + ".tif");
         final Path devStdout = Paths.get("/dev/stdout");
 
         stdoutSymlink = Files.createSymbolicLink(link, devStdout);
@@ -143,7 +141,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
             final Path devStdout = Paths.get("/dev/stdout");
             if (Files.exists(devStdout) && Files.isWritable(devStdout)) {
                 // Due to another quirk of opj_decompress, we need to create a
-                // symlink from {temp path}/stdout.bmp to /dev/stdout, to tell
+                // symlink from {temp path}/stdout.tif to /dev/stdout, to tell
                 // opj_decompress what format to write.
                 createStdoutSymlink();
             } else {
@@ -336,7 +334,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
                         new StreamCopier(processErrorStream, errorBucket));
 
                 final ImageReader reader = new ImageReader(
-                        processInputStream, Format.BMP);
+                        processInputStream, Format.TIF);
                 final BufferedImage image = reader.read();
                 try {
                     Set<ImageReader.Hint> hints =
