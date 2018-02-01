@@ -95,24 +95,6 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
     /** Lazy-set by {@link #isQuietModeSupported()} */
     private static boolean isQuietModeSupported = true;
 
-    private static Path stdoutSymlink;
-
-    /**
-     * Creates a unique symlink to /dev/stdout in a temporary directory, and
-     * sets it to delete on exit.
-     */
-    private static void createStdoutSymlink() throws IOException {
-        Path tempDir = Application.getTempPath();
-
-        final Path link = tempDir.resolve(Application.NAME + "-" +
-                OpenJpegProcessor.class.getSimpleName() + "-" +
-                UUID.randomUUID() + ".tif");
-        final Path devStdout = Paths.get("/dev/stdout");
-
-        stdoutSymlink = Files.createSymbolicLink(link, devStdout);
-        stdoutSymlink.toFile().deleteOnExit();
-    }
-
     /**
      * @param binaryName Name of one of the opj_* binaries.
      * @return Absolute path to the given binary.
@@ -136,19 +118,6 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
             // Check for the presence of opj_decompress.
             invoke("opj_decompress");
 
-            // Due to a quirk of opj_decompress, this processor requires access to
-            // /dev/stdout.
-            final Path devStdout = Paths.get("/dev/stdout");
-            if (Files.exists(devStdout) && Files.isWritable(devStdout)) {
-                // Due to another quirk of opj_decompress, we need to create a
-                // symlink from {temp path}/stdout.tif to /dev/stdout, to tell
-                // opj_decompress what format to write.
-                createStdoutSymlink();
-            } else {
-                LOGGER.error(OpenJpegProcessor.class.getSimpleName() +
-                        " won't work on this platform as it requires access " +
-                        "to /dev/stdout.");
-            }
         } catch (IOException e) {
             initializationException = new InitializationException(e);
         }
@@ -316,6 +285,16 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
 
         // Will receive stderr output from opj_decompress.
         final ByteArrayOutputStream errorBucket = new ByteArrayOutputStream();
+        final Format intermediateFormat = Format.TIF;
+        Path intermediateFile;
+        
+        try {
+            intermediateFile = Files.createTempFile(
+                    null,
+                    intermediateFormat.getPreferredExtension());
+        } catch (IOException e1) {
+            throw new ProcessorException("Failed to allocate temporary file.", e1);
+        }
         try {
             final ReductionFactor reductionFactor = new ReductionFactor();
 
@@ -323,35 +302,34 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
             final boolean normalize = (opList.getFirst(Normalize.class) != null);
 
             final ProcessBuilder pb = getProcessBuilder(
-                    opList, imageInfo.getSize(), reductionFactor, normalize);
+                    opList, imageInfo.getSize(), reductionFactor, normalize, intermediateFile);
             LOGGER.info("Invoking {}", String.join(" ", pb.command()));
             final Process process = pb.start();
 
-            try (final InputStream processInputStream =
-                         new BufferedInputStream(process.getInputStream());
-                 final InputStream processErrorStream = process.getErrorStream()) {
+            try (final InputStream processErrorStream = process.getErrorStream()) {
                 ThreadPool.getInstance().submit(
                         new StreamCopier(processErrorStream, errorBucket));
 
+                final int code = process.waitFor();
+                if (code != 0) {
+                    LOGGER.warn("opj_decompress returned with code {}", code);
+                    final String errorStr = toString(errorBucket);
+                    if (errorStr.length() > 0) {
+                        throw new ProcessorException(errorStr);
+                    }
+                }
+                
                 final ImageReader reader = new ImageReader(
-                        processInputStream, Format.TIF);
+                        intermediateFile, intermediateFormat);
                 final BufferedImage image = reader.read();
                 try {
-                    Set<ImageReader.Hint> hints =
+                    final Set<ImageReader.Hint> hints =
                             EnumSet.noneOf(ImageReader.Hint.class);
                     if (!normalize) {
                         hints.add(ImageReader.Hint.ALREADY_CROPPED);
                     }
                     postProcess(image, hints, opList, imageInfo,
                             reductionFactor, outputStream);
-                    final int code = process.waitFor();
-                    if (code != 0) {
-                        LOGGER.warn("opj_decompress returned with code {}", code);
-                        final String errorStr = toString(errorBucket);
-                        if (errorStr.length() > 0) {
-                            throw new ProcessorException(errorStr);
-                        }
-                    }
                 } finally {
                     reader.dispose();
                 }
@@ -374,6 +352,13 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
             }
             throw new ProcessorException(msg, e);
         }
+        finally {
+            try {
+                Files.deleteIfExists(intermediateFile);
+            } catch (IOException e) {
+                LOGGER.warn(String.format("Failed to delete temporary intermediate file: %s", intermediateFile), e);
+            }
+        }
     }
 
     /**
@@ -386,11 +371,13 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
      * @param ignoreCrop Ignore any cropping directives provided in
      *                   <code>opList</code>.
      * @return opj_decompress command invocation string
+     * @throws IOException 
      */
     private ProcessBuilder getProcessBuilder(final OperationList opList,
                                              final Dimension imageSize,
                                              final ReductionFactor reduction,
-                                             final boolean ignoreCrop) {
+                                             final boolean ignoreCrop,
+                                             final Path output) throws IOException {
         final List<String> command = new ArrayList<>();
         command.add(getPath("opj_decompress"));
 
@@ -432,7 +419,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
         }
 
         command.add("-o");
-        command.add(stdoutSymlink.toString());
+        command.add(output.toRealPath().toString());
 
         return new ProcessBuilder(command);
     }
