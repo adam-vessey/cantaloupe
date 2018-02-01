@@ -50,9 +50,9 @@ import java.util.regex.Pattern;
  *
  * <p>{@literal opj_decompress} is used for cropping and an initial scale
  * reduction factor, and Java 2D is used for all remaining processing steps.
- * It produces TIFF output which is streamed to an ImageIO reader. (TIFF does not
- * copy embedded ICC profiles into output images, but {@literal opj_decompress}
- * converts the RGB source data itself.</p>
+ * It produces TIFF output which is streamed to an ImageIO reader. (TIFF does
+ * not copy embedded ICC profiles into output images, but
+ * {@literal opj_decompress} converts the RGB source data itself.)</p>
  *
  * <p>{@literal opj_decompress} reads and writes the files named in the
  * {@literal -i} and {@literal -o} arguments passed to it, respectively. The
