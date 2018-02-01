@@ -82,6 +82,8 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
             LoggerFactory.getLogger(OpenJpegProcessor.class);
 
     private static final short MAX_REDUCTION_FACTOR = 5;
+    
+    private static final Format intermediateFormat = Format.TIF;
 
     /** Lazy-set by {@link #isQuietModeSupported()} */
     private static boolean checkedForQuietMode = false;
@@ -285,13 +287,12 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
 
         // Will receive stderr output from opj_decompress.
         final ByteArrayOutputStream errorBucket = new ByteArrayOutputStream();
-        final Format intermediateFormat = Format.TIF;
         Path intermediateFile;
         
         try {
             intermediateFile = Files.createTempFile(
                     null,
-                    intermediateFormat.getPreferredExtension());
+                    "." + intermediateFormat.getPreferredExtension());
         } catch (IOException e1) {
             throw new ProcessorException("Failed to allocate temporary file.", e1);
         }
