@@ -56,16 +56,7 @@ import java.util.regex.Pattern;
  *
  * <p>{@literal opj_decompress} reads and writes the files named in the
  * {@literal -i} and {@literal -o} arguments passed to it, respectively. The
- * file in the {@literal -o} argument must have a {@literal .tif} extension.
- * This means that it's not possible to natively write to a {@link
- * Process#getInputStream() process input stream}. Instead, we have to resort
- * to a special trick whereby we create a symlink from
- * {@literal /tmp/whatever.tif} to {@literal /dev/stdout}, which will enable us
- * to accomplish this. The temporary symlink is created in the static
- * initializer and deleted on exit.</p>
- *
- * <p>Unfortunately, Windows doesn't have anything like {@literal /dev/stdout},
- * so this processor won't work there.</p>
+ * file in the {@literal -o} argument must have a {@literal .tif} extension.</p>
  *
  * <p><strong>opj_decompress version 2.2.0 is highly recommended.</strong>
  * Earlier versions echo log messages to stdout, which can cause problems with
@@ -291,6 +282,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
         
         try {
             intermediateFile = Files.createTempFile(
+                    Application.getTempPath(),
                     null,
                     "." + intermediateFormat.getPreferredExtension());
         } catch (IOException e1) {
