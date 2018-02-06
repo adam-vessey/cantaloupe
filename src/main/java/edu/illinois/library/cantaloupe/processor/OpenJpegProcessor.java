@@ -74,7 +74,7 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
 
     private static final short MAX_REDUCTION_FACTOR = 5;
     
-    private static final Format intermediateFormat = Format.TIF;
+    private Format intermediateFormat = Format.TIF;
 
     /** Lazy-set by {@link #isQuietModeSupported()} */
     private static boolean checkedForQuietMode = false;
@@ -124,6 +124,10 @@ class OpenJpegProcessor extends AbstractJava2DProcessor
         String commandString = String.join(" ", pb.command());
         LOGGER.info("invoke(): {}", commandString);
         pb.start();
+    }
+    
+    public void setIntermediateFormat(Format format) {
+        intermediateFormat = format;
     }
 
     static synchronized boolean isQuietModeSupported() {
