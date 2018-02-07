@@ -35,4 +35,9 @@ public class KakaduProcessorPerformance extends KakaduProcessorTest {
         super.testReadImageInfoOnAllFixtures();
     }
 
+    @Benchmark
+    @Override
+    public void testProcessOnAllFixtures() throws Exception {
+        super.testProcessOnAllFixtures();
+    }
 }
