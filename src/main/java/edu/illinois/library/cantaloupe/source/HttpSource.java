@@ -419,6 +419,7 @@ class HttpSource extends AbstractSource implements StreamSource {
                 rangedGETResponseHeaders = response.getHeaders();
                 rangedGETResponseEntity = response.getContent();
             } catch (ExecutionException e) {
+                LOGGER.debug("ExecutionException from Request.send(); generating AccessDeniedException.", e);
                 throw new AccessDeniedException(info.getURI().toString());
             } catch (InterruptedException | TimeoutException e) {
                 throw new IOException(e);
