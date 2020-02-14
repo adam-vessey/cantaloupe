@@ -10,12 +10,24 @@ import java.util.Iterator;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class HeritablePropertiesConfigurationTest extends AbstractFileConfigurationTest {
 
-    private HeritablePropertiesConfiguration instance;
+    private HeritablePropertiesConfiguration instance, instance2;
 
+    private HeritablePropertiesConfiguration load(Path path, boolean clear) throws ConfigurationException {
+        System.setProperty(ConfigurationFactory.CONFIG_VM_ARGUMENT, path.toString());
+        HeritablePropertiesConfiguration instance = new HeritablePropertiesConfiguration();
+        instance.reload();
+        if (clear) {
+          instance.clear();
+        }
+        return instance;
+    }
+    
     @Before
     public void setUp() throws Exception {
         super.setUp();
@@ -23,14 +35,30 @@ public class HeritablePropertiesConfigurationTest extends AbstractFileConfigurat
         // Instances won't work without an actual file backing them up.
         File directory = new File(".");
         String cwd = directory.getCanonicalPath();
-        Path configPath = Paths.get(cwd, "src", "test", "resources",
-                "heritable_level3.properties");
-        System.setProperty(ConfigurationFactory.CONFIG_VM_ARGUMENT,
-                configPath.toString());
 
-        instance = new HeritablePropertiesConfiguration();
+        instance2 = load(Paths.get(cwd, "src", "test", "resources", "heritable_level1.properties"), false);
+        instance = load(Paths.get(cwd, "src", "test", "resources", "heritable_level3.properties"), true);
+    }
+    
+    @Test
+    public void testBaseTypes() {
+        assertEquals("alpha", instance2.getString("alpha"));
+        assertEquals(2, instance2.getInt("bravo"));
+        assertEquals(4L, instance2.getLong("charlie"));
+        assertEquals(1.5d, instance2.getDouble("delta"), 0);
+        assertEquals(4.6, instance2.getFloat("echo"), 0.000001);
+        assertFalse(instance2.getBoolean("foxtrot"));
+    }
+    
+    @Test
+    public void testInheritedTypes() throws ConfigurationException {
         instance.reload();
-        instance.clear();
+        assertEquals("AAA", instance.getString("alpha"));
+        assertEquals(20, instance.getInt("bravo"));
+        assertEquals(4096L, instance.getLong("charlie"));
+        assertEquals(3.5d, instance.getDouble("delta"), 0);
+        assertEquals(2.6, instance.getFloat("echo"), 0.000001);
+        assertTrue(instance.getBoolean("foxtrot"));
     }
 
     protected Configuration getInstance() {
@@ -56,7 +84,7 @@ public class HeritablePropertiesConfigurationTest extends AbstractFileConfigurat
             it.next();
             count++;
         }
-        assertEquals(9, count);
+        assertEquals(21, count);
     }
 
     /* getProperty(Key) */
