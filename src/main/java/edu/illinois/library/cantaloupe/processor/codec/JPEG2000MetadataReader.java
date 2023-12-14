@@ -301,7 +301,7 @@ public final class JPEG2000MetadataReader implements AutoCloseable {
         if (Arrays.equals(uuid, XMP_UUID)) {
             byte[] data = read((int) dataLength - 16);
             xmp = new String(data, StandardCharsets.UTF_8);
-            xmp = xmp.substring(xmp.indexOf("<rdf:RDF "),
+            xmp = xmp.substring(xmp.indexOf("<rdf:RDF"),
                     xmp.indexOf("</rdf:RDF>") + 10);
         } else {
             inputStream.skipBytes(dataLength - 16);
